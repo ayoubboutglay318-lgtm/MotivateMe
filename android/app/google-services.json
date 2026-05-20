@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "449939183307",
+    "project_id": "habitquest-5c0b7",
+    "storage_bucket": "habitquest-5c0b7.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:449939183307:android:f75058283345ae3a052d4e",
+        "android_client_info": {
+          "package_name": "com.ayoub.motivate_me"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA5H4dtNtbfvNkZdADQ2Ep_Sy26qSLaEnE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
