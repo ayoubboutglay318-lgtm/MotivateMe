@@ -22,6 +22,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _enabled = true;
   bool _loading = true;
   bool _sigma = false;
+  int _intervalHours = 2;
+
+  static const _intervalOptions = [1, 2, 3, 4];
 
   @override
   void initState() {
@@ -41,9 +44,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _load() async {
     final t = await NotificationService.instance.getSavedTime();
     final e = await NotificationService.instance.isEnabled();
+    final i = await NotificationService.instance.getIntervalHours();
     if (mounted) setState(() {
       _time = t;
       _enabled = e;
+      _intervalHours = i;
       _sigma = SigmaService.instance.sigmaMode;
       _loading = false;
     });
@@ -62,9 +67,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
     if (picked != null && mounted) {
       setState(() => _time = picked);
-      await NotificationService.instance.schedule(picked, enabled: _enabled);
+      await NotificationService.instance.schedule(picked, enabled: _enabled, intervalHours: _intervalHours);
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Notification set for ${picked.format(context)}'),
+        content: Text('First notification set for ${picked.format(context)}'),
         behavior: SnackBarBehavior.floating,
       ));
     }
@@ -72,7 +77,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _toggleEnabled(bool val) async {
     setState(() => _enabled = val);
-    await NotificationService.instance.schedule(_time, enabled: val);
+    await NotificationService.instance.schedule(_time, enabled: val, intervalHours: _intervalHours);
+  }
+
+  Future<void> _setInterval(int hours) async {
+    HapticFeedback.selectionClick();
+    setState(() => _intervalHours = hours);
+    if (_enabled) {
+      await NotificationService.instance.schedule(_time, enabled: true, intervalHours: hours);
+    }
   }
 
   void _push(Widget screen) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
@@ -118,7 +131,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     _SettingsTile(
                       icon: Icons.notifications_outlined,
                       label: 'Daily motivation',
-                      subtitle: 'Get a quote every day',
+                      subtitle: 'Get quotes throughout the day',
                       trailing: Switch(
                         value: _enabled,
                         activeThumbColor: const Color(0xFFFFD700),
@@ -129,10 +142,85 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     const _Divider(),
                     _SettingsTile(
                       icon: Icons.access_time_rounded,
-                      label: 'Notification time',
+                      label: 'Start time',
                       subtitle: _enabled ? _time.format(context) : 'Off',
                       trailing: const Icon(Icons.chevron_right, color: Colors.white38),
                       onTap: _enabled ? _pickTime : null,
+                    ),
+                    const _Divider(),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(children: [
+                            Container(
+                              width: 34, height: 34,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(8),
+                                color: const Color(0xFF2A3D5A),
+                              ),
+                              child: const Icon(Icons.repeat_rounded, color: Colors.white70, size: 18),
+                            ),
+                            const SizedBox(width: 12),
+                            const Text('Every',
+                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14)),
+                          ]),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: _intervalOptions.map((h) {
+                              final selected = _intervalHours == h;
+                              return Expanded(
+                                child: GestureDetector(
+                                  onTap: _enabled ? () => _setInterval(h) : null,
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 180),
+                                    margin: const EdgeInsets.only(right: 8),
+                                    padding: const EdgeInsets.symmetric(vertical: 10),
+                                    decoration: BoxDecoration(
+                                      color: selected
+                                          ? const Color(0xFFFFD700).withValues(alpha: 0.15)
+                                          : const Color(0xFF243050),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: selected
+                                            ? const Color(0xFFFFD700).withValues(alpha: 0.6)
+                                            : Colors.transparent,
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                    child: Column(children: [
+                                      Text(
+                                        '${h}h',
+                                        style: TextStyle(
+                                          color: selected ? const Color(0xFFFFD700) : Colors.white54,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                      Text(
+                                        'interval',
+                                        style: TextStyle(
+                                          color: selected
+                                              ? const Color(0xFFFFD700).withValues(alpha: 0.7)
+                                              : Colors.white30,
+                                          fontSize: 10,
+                                        ),
+                                      ),
+                                    ]),
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                          if (!_enabled)
+                            const Padding(
+                              padding: EdgeInsets.only(top: 8),
+                              child: Text('Enable notifications to change frequency',
+                                  style: TextStyle(color: Colors.white30, fontSize: 11)),
+                            ),
+                        ],
+                      ),
                     ),
                   ]),
                   const SizedBox(height: 20),
