@@ -62,10 +62,6 @@
 		<string>UIInterfaceOrientationPortrait</string>
 		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 	</array>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>audio</string>
-	</array>
 	<key>NSUserNotificationUsageDescription</key>
 	<string>MotivateMe sends you a daily motivational quote to keep you going.</string>
 </dict>

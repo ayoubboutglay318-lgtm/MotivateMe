@@ -63,7 +63,10 @@ class _MotivateAppState extends State<MotivateApp> {
   void initState() {
     super.initState();
     _showOnboarding = widget.showOnboarding;
-    _initNotifications();
+    // Defer the permission prompt until after onboarding explains why
+    // notifications matter, rather than surprising first-time users with
+    // it immediately on launch.
+    if (!_showOnboarding) _initNotifications();
     ThemeService.instance.addListener(_onTheme);
   }
 
@@ -102,7 +105,10 @@ class _MotivateAppState extends State<MotivateApp> {
         ),
       ),
       home: _showOnboarding
-          ? OnboardingScreen(onDone: () => setState(() => _showOnboarding = false))
+          ? OnboardingScreen(onDone: () {
+              setState(() => _showOnboarding = false);
+              _initNotifications();
+            })
           : HomeScreen(
               quotesService: QuotesService(),
               favoritesService: widget.favoritesService,
