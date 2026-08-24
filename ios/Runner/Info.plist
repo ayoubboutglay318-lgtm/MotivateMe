@@ -61,6 +61,8 @@
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
 		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>NSUserNotificationUsageDescription</key>
 	<string>MotivateMe sends you a daily motivational quote to keep you going.</string>
