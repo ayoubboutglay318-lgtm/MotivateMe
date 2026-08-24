@@ -5,20 +5,15 @@ workflows:
     integrations:
       app_store_connect: codemagic
     environment:
-      vars:
-        BUNDLE_ID: com.ayoub.motivateMe
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.ayoub.motivateMe
       flutter: stable
       xcode: latest
       cocoapods: default
     scripts:
       - name: Get Flutter packages
         script: flutter pub get
-      - name: Set up code signing
-        script: |
-          keychain initialize
-          app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
-          keychain add-certificates
-          xcode-project use-profiles
       - name: Build ipa
         script: flutter build ipa --release
     artifacts:
