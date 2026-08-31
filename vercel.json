@@ -1,0 +1,26 @@
+{
+  "buildCommand": "echo 'Static files ready'",
+  "outputDirectory": "legal-website",
+  "rewrites": [
+    {
+      "source": "/",
+      "destination": "/legal-website/index.html"
+    },
+    {
+      "source": "/privacy",
+      "destination": "/legal-website/privacy.html"
+    },
+    {
+      "source": "/terms",
+      "destination": "/legal-website/terms.html"
+    },
+    {
+      "source": "/support",
+      "destination": "/legal-website/support.html"
+    },
+    {
+      "source": "/contact",
+      "destination": "/legal-website/contact.html"
+    }
+  ]
+}
