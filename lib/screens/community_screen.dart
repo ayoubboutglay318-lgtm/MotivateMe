@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class CommunityScreen extends StatefulWidget {
   const CommunityScreen({super.key});
@@ -12,6 +15,26 @@ class _CommunityScreenState extends State<CommunityScreen> {
   final _winCtrl = TextEditingController();
   final List<_Win> _wins = [];
 
+  static const _kWins = 'my_wins';
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getStringList(_kWins) ?? const [];
+    final wins = raw.map((e) => _Win.fromJson(jsonDecode(e) as Map<String, dynamic>)).toList();
+    if (mounted) setState(() => _wins..clear()..addAll(wins));
+  }
+
+  Future<void> _save() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_kWins, _wins.map((w) => jsonEncode(w.toJson())).toList());
+  }
+
   @override
   void dispose() {
     _winCtrl.dispose();
@@ -23,9 +46,10 @@ class _CommunityScreenState extends State<CommunityScreen> {
     if (text.isEmpty) return;
     Navigator.pop(context);
     setState(() {
-      _wins.insert(0, _Win(name: 'You', win: text, ago: 'Just now'));
+      _wins.insert(0, _Win(win: text, at: DateTime.now()));
     });
     _winCtrl.clear();
+    _save();
   }
 
   @override
@@ -132,10 +156,24 @@ class _CommunityScreenState extends State<CommunityScreen> {
 }
 
 class _Win {
-  _Win({required this.name, required this.win, required this.ago});
-  final String name;
+  _Win({required this.win, required this.at});
   final String win;
-  final String ago;
+  final DateTime at;
+
+  String get name => 'You';
+
+  String get ago {
+    final d = DateTime.now().difference(at);
+    if (d.inMinutes < 1) return 'Just now';
+    if (d.inHours < 1) return '${d.inMinutes}m ago';
+    if (d.inDays < 1) return '${d.inHours}h ago';
+    return '${d.inDays}d ago';
+  }
+
+  factory _Win.fromJson(Map<String, dynamic> j) =>
+      _Win(win: j['win'] as String, at: DateTime.fromMillisecondsSinceEpoch(j['at'] as int));
+
+  Map<String, dynamic> toJson() => {'win': win, 'at': at.millisecondsSinceEpoch};
 }
 
 class _EmptyState extends StatelessWidget {

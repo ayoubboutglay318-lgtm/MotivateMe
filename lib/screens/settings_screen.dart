@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
-import '../services/auth_service.dart';
 import '../services/notification_service.dart';
 import '../services/sigma_service.dart';
 import '../services/theme_service.dart';
-import 'auth_screen.dart';
 import 'community_screen.dart';
 import 'privacy_policy_screen.dart';
 import 'terms_screen.dart';
@@ -21,7 +18,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   TimeOfDay _time = const TimeOfDay(hour: 8, minute: 0);
   bool _enabled = true;
   bool _loading = true;
-  bool _sigma = false;
   int _intervalHours = 2;
 
   static const _intervalOptions = [1, 2, 3, 4];
@@ -39,7 +35,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.dispose();
   }
 
-  void _onSigma() => setState(() => _sigma = SigmaService.instance.sigmaMode);
+  void _onSigma() => setState(() {});
 
   Future<void> _load() async {
     final t = await NotificationService.instance.getSavedTime();
@@ -49,7 +45,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _time = t;
       _enabled = e;
       _intervalHours = i;
-      _sigma = SigmaService.instance.sigmaMode;
       _loading = false;
     });
   }
@@ -90,28 +85,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   void _push(Widget screen) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
 
-  Future<void> _signOut() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF1E2C42),
-        title: const Text('Sign out', style: TextStyle(color: Colors.white)),
-        content: const Text('Are you sure?', style: TextStyle(color: Colors.white70)),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel', style: TextStyle(color: Colors.white38))),
-          TextButton(onPressed: () => Navigator.pop(context, true),
-              child: const Text('Sign out', style: TextStyle(color: Colors.redAccent))),
-        ],
-      ),
-    );
-    if (confirm == true) { await AuthService.instance.signOut(); if (mounted) setState(() {}); }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final auth = AuthService.instance;
-
     return Scaffold(
       backgroundColor: const Color(0xFF080C15),
       body: SafeArea(
@@ -357,40 +332,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _GroupCard(children: [
                     _SettingsTile(
                       icon: Icons.groups_outlined,
-                      label: 'Community',
-                      subtitle: 'Share wins, leaderboard',
+                      label: 'My Wins',
+                      subtitle: 'Log your daily victories',
                       trailing: const Icon(Icons.chevron_right, color: Colors.white38),
                       onTap: () => _push(const CommunityScreen()),
                     ),
-                  ]),
-                  const SizedBox(height: 20),
-
-                  _SectionLabel('ACCOUNT'),
-                  const SizedBox(height: 10),
-                  _GroupCard(children: [
-                    if (!auth.isLoggedIn)
-                      _SettingsTile(
-                        icon: Icons.person_outline,
-                        label: 'Sign in',
-                        subtitle: 'Save your favorites & streak',
-                        trailing: const Icon(Icons.chevron_right, color: Colors.white38),
-                        onTap: () => _push(const AuthScreen()),
-                      )
-                    else ...[
-                      _SettingsTile(
-                        icon: Icons.person_outline,
-                        label: auth.displayName,
-                        subtitle: auth.user?.email ?? '',
-                        trailing: const SizedBox.shrink(),
-                      ),
-                      const _Divider(),
-                      _SettingsTile(
-                        icon: Icons.logout,
-                        label: 'Sign out',
-                        trailing: const Icon(Icons.chevron_right, color: Colors.white38),
-                        onTap: _signOut,
-                      ),
-                    ],
                   ]),
                   const SizedBox(height: 20),
 
@@ -416,6 +362,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Center(
                     child: Text('MotivateMe v1.0.0',
                         style: TextStyle(color: Colors.white.withValues(alpha: 0.25), fontSize: 12)),
+                  ),
+                  const SizedBox(height: 4),
+                  Center(
+                    child: Text('Inspirational quotes provided by ZenQuotes API',
+                        style: TextStyle(color: Colors.white.withValues(alpha: 0.2), fontSize: 10)),
                   ),
                   const SizedBox(height: 20),
                 ],
@@ -445,7 +396,12 @@ class _GroupCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: const Color(0xFF2A3D5A)),
         ),
-        child: Column(children: children),
+        child: Material(
+          type: MaterialType.transparency,
+          borderRadius: BorderRadius.circular(16),
+          clipBehavior: Clip.antiAlias,
+          child: Column(children: children),
+        ),
       );
 }
 

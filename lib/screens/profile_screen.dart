@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../services/auth_service.dart';
 import '../services/challenge_service.dart';
 import '../services/favorites_service.dart';
 import '../services/goals_service.dart';
+import '../services/sigma_service.dart';
 import '../services/streak_service.dart';
-import 'auth_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({
@@ -24,10 +23,10 @@ class ProfileScreen extends StatelessWidget {
         favoritesService,
         ChallengeService.instance,
         GoalsService.instance,
-        AuthService.instance,
+        SigmaService.instance,
       ]),
       builder: (context, _) {
-        final auth = AuthService.instance;
+        final mode = SigmaService.instance.currentMode;
         final challenge = ChallengeService.instance;
         final goals = GoalsService.instance;
         final streak = streakService.streak;
@@ -56,50 +55,24 @@ class ProfileScreen extends StatelessWidget {
                           color: const Color(0xFFFFD700).withValues(alpha: 0.4), width: 2),
                     ),
                     child: Center(
-                      child: Text(
-                        auth.isLoggedIn ? auth.displayName[0].toUpperCase() : '?',
-                        style: GoogleFonts.playfairDisplay(
-                            color: const Color(0xFFFFD700),
-                            fontSize: 28,
-                            fontWeight: FontWeight.w700),
-                      ),
+                      child: Text(mode.emoji, style: const TextStyle(fontSize: 28)),
                     ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text(
-                        auth.isLoggedIn ? auth.displayName : 'Guest',
+                        'Your Progress',
                         style: GoogleFonts.inter(
                             color: Colors.white, fontWeight: FontWeight.w800, fontSize: 18),
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        auth.isLoggedIn
-                            ? (auth.user?.email ?? '')
-                            : 'Sign in to track your progress',
+                        '${mode.name} mode · ${mode.tagline}',
                         style: GoogleFonts.inter(color: Colors.white38, fontSize: 12),
                       ),
                     ]),
                   ),
-                  if (!auth.isLoggedIn)
-                    GestureDetector(
-                      onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => const AuthScreen())),
-                      child: Container(
-                        padding:
-                            const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFFD700),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text('Sign in',
-                            style: GoogleFonts.inter(
-                                color: Colors.black,
-                                fontWeight: FontWeight.w800,
-                                fontSize: 12)),
-                      ),
-                    ),
                 ]),
                 const SizedBox(height: 28),
 

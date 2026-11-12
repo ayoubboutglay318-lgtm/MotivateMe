@@ -26,8 +26,13 @@ class StreakService extends ChangeNotifier {
     } else if (lastOpen == today) {
       // already opened today, just load
     } else {
+      // Compare calendar days in UTC so a daylight-saving shift (a 23-hour
+      // day) can't make "yesterday" look like "today" and reset the streak.
       final last = DateTime.parse(lastOpen);
-      final diff = DateTime.now().difference(last).inDays;
+      final now = DateTime.now();
+      final diff = DateTime.utc(now.year, now.month, now.day)
+          .difference(DateTime.utc(last.year, last.month, last.day))
+          .inDays;
       if (diff == 1) {
         _streak += 1;
       } else {

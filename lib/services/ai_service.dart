@@ -1,16 +1,106 @@
 import 'dart:math';
 
+import 'claude_client.dart';
+
 class AiResponse {
   const AiResponse({required this.text, required this.emoji});
   final String text;
   final String emoji;
 }
 
+/// The chat coach.
+///
+/// Talks to Claude when the app is configured with a proxy or key (see
+/// [ClaudeConfig]), and falls back to the built-in responses below when it
+/// isn't — no network, no key, or a failed request. The offline path is what
+/// shipped before live replies existed, and it stays as the safety net so the
+/// screen is never dead.
 class AiService {
   static final AiService instance = AiService._();
   AiService._();
 
   final _rng = Random();
+  final _client = ClaudeClient();
+
+  /// Prior turns, oldest first, in Messages API shape.
+  final _history = <Map<String, String>>[];
+
+  /// Turns kept before the oldest are dropped. Each turn is a user message and
+  /// a reply, so this is 10 exchanges — enough for the coach to follow a
+  /// conversation without the request growing without bound.
+  static const _maxHistory = 20;
+
+  bool get isLive => ClaudeConfig.isConfigured;
+
+  void reset() => _history.clear();
+
+  void dispose() => _client.close();
+
+  static const _systemPrompt = '''
+You are the coach inside MotivateMe, a motivational app. Someone opened it
+because they want to be pushed, encouraged, or steadied.
+
+Voice: direct, warm, fired up. Talk like a coach who believes in them, not like
+a self-help book. Two to four sentences unless they clearly want more. At most
+one emoji, and only where it lands. No bullet points or headings — this is a
+chat, not a handout.
+
+Answer what they actually wrote. If they name something specific — an exam, a
+breakup, a training plateau, a boss — respond to that, not to motivation in the
+abstract. Ask a question back when you genuinely need to know more.
+
+Intensity is a tool, not a default. Someone grinding toward a goal wants fire.
+Someone who sounds exhausted, defeated or hurt needs you steady before they need
+you loud. Work out which one you are talking to before you pick a gear.
+
+If someone describes self-harm, suicidal thoughts, abuse, or any crisis, drop
+the hype completely. Take them seriously, say plainly that this deserves real
+support, and encourage them to reach a local crisis line or somebody they trust.
+Never aim a "no excuses" line at someone in that state. You are a motivational
+coach, not a therapist, and you should not act like one.
+''';
+
+  /// Streams a reply, yielding text as it arrives.
+  ///
+  /// Appends both sides of the exchange to [_history] so the next message has
+  /// context. On any failure this yields one of the offline responses instead,
+  /// so the user always gets something back.
+  Stream<String> streamReply(String input) async* {
+    if (!isLive) {
+      yield respond(input).text;
+      return;
+    }
+
+    _history.add({'role': 'user', 'content': input});
+    _trimHistory();
+
+    final reply = StringBuffer();
+    try {
+      await for (final chunk in _client.streamReply(
+        system: _systemPrompt,
+        history: List.of(_history),
+      )) {
+        reply.write(chunk);
+        yield chunk;
+      }
+    } on ClaudeException {
+      // Drop the unanswered user turn so a failed request doesn't poison the
+      // next one, then fall back to the built-in responses.
+      _history.removeLast();
+      yield respond(input).text;
+      return;
+    }
+
+    _history.add({'role': 'assistant', 'content': reply.toString()});
+    _trimHistory();
+  }
+
+  void _trimHistory() {
+    if (_history.length <= _maxHistory) return;
+    _history.removeRange(0, _history.length - _maxHistory);
+    // A history that starts on an assistant turn is rejected by the API.
+    if (_history.first['role'] == 'assistant') _history.removeAt(0);
+  }
 
   static const _responses = {
     'tired': [
@@ -73,8 +163,34 @@ class AiService {
     ],
   };
 
+  /// Phrases that mean the person may be in crisis. Checked before the keyword
+  /// match so "I want to give up on life" never gets a "don't quit, prove it"
+  /// reply — the offline path has no model to read the room, so it has to be
+  /// told. Mirrors the crisis paragraph in [_systemPrompt].
+  static const _crisisPhrases = [
+    'suicide', 'suicidal', 'kill myself', 'killing myself', 'end my life',
+    'end it all', 'want to die', 'wanna die', 'better off dead',
+    'no reason to live', 'self harm', 'self-harm', 'hurt myself',
+    'hurting myself', 'cut myself', 'cutting myself', 'abuse', 'abusing me',
+    'hits me', 'beats me', 'raped',
+  ];
+
+  static const _crisisResponse = AiResponse(
+    emoji: '💙',
+    text: "I'm really glad you told me, and I'm taking this seriously. What you're "
+        "going through deserves real support, more than an app can give. Please "
+        "reach out to someone you trust, or contact a local crisis line now — you "
+        "can find one for your country at findahelpline.com. If you're in danger, "
+        "call your local emergency number. You don't have to carry this alone.",
+  );
+
+  /// Offline reply: keyword match over the canned responses above.
+  ///
+  /// Used when the app has no proxy or key configured, and as the fallback
+  /// whenever a live request fails.
   AiResponse respond(String input) {
     final lower = input.toLowerCase();
+    if (_crisisPhrases.any(lower.contains)) return _crisisResponse;
     for (final key in _responses.keys) {
       if (key == 'default') continue;
       if (lower.contains(key)) {

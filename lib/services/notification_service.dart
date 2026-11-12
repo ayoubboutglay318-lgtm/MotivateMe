@@ -15,6 +15,8 @@ class NotificationService {
   static const _keyEnabled = 'notif_enabled';
   static const _keyInterval = 'notif_interval_hours'; // hours between notifications
   static const _keyLastScheduled = 'notif_last_scheduled';
+  static const _maxQuoteId = 49;
+  static const _streakReminderId = 900;
 
   static const _quotes = [
     'Push yourself — no one else will do it for you.',
@@ -118,8 +120,14 @@ class NotificationService {
     final interval = intervalHours ?? (prefs.getInt(_keyInterval) ?? 2);
     await prefs.setInt(_keyInterval, interval);
 
-    await _plugin.cancelAll();
-    if (!enabled) return;
+    // Only clear the quote notifications; the streak reminder has its own id.
+    for (var id = 1; id <= _maxQuoteId; id++) {
+      await _plugin.cancel(id);
+    }
+    if (!enabled) {
+      await _plugin.cancel(_streakReminderId);
+      return;
+    }
 
     final localNow = DateTime.now();
     final dayOfYear = localNow.difference(DateTime(localNow.year)).inDays;
@@ -169,12 +177,50 @@ class NotificationService {
               UILocalNotificationDateInterpretation.absoluteTime,
         );
 
-        if (notifId > 49) break; // stay within safe Android limit
+        if (notifId > _maxQuoteId) break; // iOS keeps at most 64 pending
       }
-      if (notifId > 49) break;
+      if (notifId > _maxQuoteId) break;
     }
 
     await prefs.setString(_keyLastScheduled, localNow.toIso8601String());
+    await scheduleStreakReminder(prefs.getInt('streak_count') ?? 1);
+  }
+
+  /// Warns at 8 PM tomorrow that the streak is about to break.
+  ///
+  /// Called every time the app opens: opening the app moves the reminder to
+  /// the following evening, so it only ever fires on a day the user hasn't
+  /// opened the app yet.
+  Future<void> scheduleStreakReminder(int streak) async {
+    await _plugin.cancel(_streakReminderId);
+    if (!await isEnabled()) return;
+
+    final now = DateTime.now();
+    final target = DateTime(now.year, now.month, now.day + 1, 20);
+    final title = streak >= 2
+        ? '🔥 Your $streak-day streak ends tonight'
+        : '🔥 Keep your streak alive';
+    const body = 'Open Motivate Me for today\'s quote. It takes 5 seconds.';
+
+    await _plugin.zonedSchedule(
+      _streakReminderId,
+      title,
+      body,
+      tz.TZDateTime.from(target, tz.UTC),
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'motivate_streak',
+          'Streak reminders',
+          channelDescription: 'A reminder before your streak breaks',
+          importance: Importance.high,
+          priority: Priority.high,
+        ),
+        iOS: DarwinNotificationDetails(),
+      ),
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+    );
   }
 
   Future<void> cancel() async {

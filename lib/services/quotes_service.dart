@@ -3,6 +3,8 @@ import 'dart:math';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'sigma_service.dart';
+
 class Quote {
   const Quote({required this.text, required this.author});
   final String text;
@@ -99,12 +101,97 @@ class QuotesService {
     Quote(text: "Don't wait for opportunity. Create it.", author: "Unknown"),
   ];
 
+  static const _gym = [
+    Quote(text: "The last three or four reps is what makes the muscle grow.", author: "Arnold Schwarzenegger"),
+    Quote(text: "I hated every minute of training, but I said, don't quit. Suffer now and live the rest of your life as a champion.", author: "Muhammad Ali"),
+    Quote(text: "Hard work beats talent when talent doesn't work hard.", author: "Tim Notke"),
+    Quote(text: "Take care of your body. It's the only place you have to live.", author: "Jim Rohn"),
+    Quote(text: "Champions keep playing until they get it right.", author: "Billie Jean King"),
+    Quote(text: "Don't count the days, make the days count.", author: "Muhammad Ali"),
+    Quote(text: "Your body can stand almost anything. It's your mind you have to convince.", author: "Unknown"),
+    Quote(text: "It never gets easier. You just get stronger.", author: "Unknown"),
+    Quote(text: "Excuses don't build muscle.", author: "Unknown"),
+    Quote(text: "One more rep. One more set. One more day.", author: "Unknown"),
+    Quote(text: "The body achieves what the mind believes.", author: "Unknown"),
+    Quote(text: "Show up on the days you don't feel like it. Those are the days that count.", author: "Unknown"),
+    Quote(text: "Strong is earned, never given.", author: "Unknown"),
+    Quote(text: "You don't find willpower. You build it, one workout at a time.", author: "Unknown"),
+  ];
+
+  static const _study = [
+    Quote(text: "Education is the most powerful weapon which you can use to change the world.", author: "Nelson Mandela"),
+    Quote(text: "An investment in knowledge pays the best interest.", author: "Benjamin Franklin"),
+    Quote(text: "Live as if you were to die tomorrow. Learn as if you were to live forever.", author: "Mahatma Gandhi"),
+    Quote(text: "The expert in anything was once a beginner.", author: "Helen Hayes"),
+    Quote(text: "The beautiful thing about learning is that nobody can take it away from you.", author: "B.B. King"),
+    Quote(text: "There are no shortcuts to any place worth going.", author: "Beverly Sills"),
+    Quote(text: "Success is the sum of small efforts, repeated day in and day out.", author: "Robert Collier"),
+    Quote(text: "Don't let what you cannot do interfere with what you can do.", author: "John Wooden"),
+    Quote(text: "Focus on being productive instead of busy.", author: "Tim Ferriss"),
+    Quote(text: "The capacity to learn is a gift; the ability to learn is a skill; the willingness to learn is a choice.", author: "Brian Herbert"),
+    Quote(text: "One hour of real focus beats a whole day of distraction.", author: "Unknown"),
+    Quote(text: "Phone down. Book open. Future loading.", author: "Unknown"),
+    Quote(text: "Understand it today and you won't have to cram it tomorrow.", author: "Unknown"),
+  ];
+
+  static const _business = [
+    Quote(text: "The way to get started is to quit talking and begin doing.", author: "Walt Disney"),
+    Quote(text: "If you really look closely, most overnight successes took a long time.", author: "Steve Jobs"),
+    Quote(text: "Your most unhappy customers are your greatest source of learning.", author: "Bill Gates"),
+    Quote(text: "Risk comes from not knowing what you're doing.", author: "Warren Buffett"),
+    Quote(text: "Price is what you pay. Value is what you get.", author: "Warren Buffett"),
+    Quote(text: "Chase the vision, not the money; the money will end up following you.", author: "Tony Hsieh"),
+    Quote(text: "Ideas are easy. Implementation is hard.", author: "Guy Kawasaki"),
+    Quote(text: "Done is better than perfect.", author: "Sheryl Sandberg"),
+    Quote(text: "The biggest risk is not taking any risk.", author: "Mark Zuckerberg"),
+    Quote(text: "Don't be afraid to give up the good to go for the great.", author: "John D. Rockefeller"),
+    Quote(text: "Formal education will make you a living; self-education will make you a fortune.", author: "Jim Rohn"),
+    Quote(text: "Make every detail perfect and limit the number of details to perfect.", author: "Jack Dorsey"),
+    Quote(text: "Ship it, learn from it, make it better.", author: "Unknown"),
+  ];
+
+  static const _monk = [
+    Quote(text: "Nature does not hurry, yet everything is accomplished.", author: "Lao Tzu"),
+    Quote(text: "The journey of a thousand miles begins with one step.", author: "Lao Tzu"),
+    Quote(text: "Silence is a source of great strength.", author: "Lao Tzu"),
+    Quote(text: "You have power over your mind, not outside events. Realize this, and you will find strength.", author: "Marcus Aurelius"),
+    Quote(text: "Waste no more time arguing about what a good man should be. Be one.", author: "Marcus Aurelius"),
+    Quote(text: "We suffer more often in imagination than in reality.", author: "Seneca"),
+    Quote(text: "Luck is what happens when preparation meets opportunity.", author: "Seneca"),
+    Quote(text: "Wherever you are, be all there.", author: "Jim Elliot"),
+    Quote(text: "The present moment is filled with joy and happiness. If you are attentive, you will see it.", author: "Thich Nhat Hanh"),
+    Quote(text: "Simplicity is the ultimate sophistication.", author: "Leonardo da Vinci"),
+    Quote(text: "Quiet the mind, and the soul will speak.", author: "Ma Jaya Sati Bhagavati"),
+    Quote(text: "Breathe in calm. Breathe out what you can't control.", author: "Unknown"),
+    Quote(text: "Small, steady steps. No rush. No stopping.", author: "Unknown"),
+  ];
+
+  static const _keyBatch = 'quote_online_batch';
+  static const _keyBatchDate = 'quote_online_batch_date';
+
+  final _rng = Random();
+  final List<Quote> _deck = [];
+  MotivationMode? _deckMode;
+  List<Quote> _online = const [];
+
+  MotivationMode get _mode => SigmaService.instance.mode;
+
+  List<Quote> _pack(MotivationMode mode) => switch (mode) {
+        MotivationMode.classic => [..._fallback, ..._online],
+        MotivationMode.sigma => _sigmaFallback,
+        MotivationMode.gym => _gym,
+        MotivationMode.study => _study,
+        MotivationMode.business => _business,
+        MotivationMode.monk => _monk,
+      };
+
+  /// Today's quote for the current motivation mode. Stays the same all day.
   Future<Quote> getTodayQuote() async {
     final prefs = await SharedPreferences.getInstance();
-    final today = _dateKey(DateTime.now());
-    final saved = prefs.getString(_keyDate);
+    final mode = _mode;
+    final today = '${_dateKey(DateTime.now())}#${mode.index}';
 
-    if (saved == today) {
+    if (prefs.getString(_keyDate) == today) {
       final raw = prefs.getString(_keyToday);
       if (raw != null) {
         try {
@@ -113,41 +200,62 @@ class QuotesService {
       }
     }
 
-    final quote = await _fetchFromApi() ?? _randomFallback();
+    if (mode == MotivationMode.classic) await _loadOnlineBatch(prefs);
+    final pack = mode == MotivationMode.classic && _online.isNotEmpty ? _online : _pack(mode);
+    final quote = pack[_rng.nextInt(pack.length)];
     await prefs.setString(_keyDate, today);
     await prefs.setString(_keyToday, jsonEncode(quote.toJson()));
     return quote;
   }
 
-  Future<Quote> refreshQuote() async {
-    final prefs = await SharedPreferences.getInstance();
-    final quote = await _fetchFromApi() ?? _randomFallback();
-    await prefs.setString(_keyDate, _dateKey(DateTime.now()));
-    await prefs.setString(_keyToday, jsonEncode(quote.toJson()));
-    return quote;
+  /// Next quote for the swipe feed. Drawn from a shuffled deck so nothing
+  /// repeats until every quote in the current mode has been shown. Works
+  /// offline and never hits the network per swipe.
+  Future<Quote> nextQuote() async {
+    final mode = _mode;
+    if (_deck.isEmpty || _deckMode != mode) {
+      if (mode == MotivationMode.classic) {
+        await _loadOnlineBatch(await SharedPreferences.getInstance());
+      }
+      _deck
+        ..clear()
+        ..addAll(_pack(mode))
+        ..shuffle(_rng);
+      _deckMode = mode;
+    }
+    return _deck.removeLast();
   }
 
-  Future<Quote?> _fetchFromApi() async {
+  /// Fetches up to 50 quotes in one request, at most once a day. Per-swipe
+  /// requests hit ZenQuotes' rate limit (5 per 30s), which then returns a
+  /// "Too many requests" message dressed up as a quote.
+  Future<void> _loadOnlineBatch(SharedPreferences prefs) async {
+    if (_online.isNotEmpty) return;
+    final today = _dateKey(DateTime.now());
+    final cached = prefs.getString(_keyBatch);
+    if (cached != null) {
+      try {
+        _online = (jsonDecode(cached) as List)
+            .map((e) => Quote.fromJson(e as Map<String, dynamic>))
+            .toList();
+      } catch (_) {}
+      if (_online.isNotEmpty && prefs.getString(_keyBatchDate) == today) return;
+    }
     try {
       final res = await http
-          .get(Uri.parse('https://zenquotes.io/api/random'))
+          .get(Uri.parse('https://zenquotes.io/api/quotes'))
           .timeout(const Duration(seconds: 6));
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body) as List;
-        if (data.isNotEmpty) {
-          final q = data[0] as Map<String, dynamic>;
-          final text = q['q']?.toString() ?? '';
-          final author = q['a']?.toString() ?? '';
-          if (text.isNotEmpty) return Quote(text: text, author: author);
-        }
-      }
+      if (res.statusCode != 200) return;
+      final fetched = (jsonDecode(res.body) as List)
+          .whereType<Map<String, dynamic>>()
+          .map((q) => Quote(text: q['q']?.toString().trim() ?? '', author: q['a']?.toString().trim() ?? ''))
+          .where((q) => q.text.isNotEmpty && !q.author.toLowerCase().contains('zenquotes'))
+          .toList();
+      if (fetched.isEmpty) return;
+      _online = fetched;
+      await prefs.setString(_keyBatch, jsonEncode(fetched.map((q) => q.toJson()).toList()));
+      await prefs.setString(_keyBatchDate, today);
     } catch (_) {}
-    return null;
-  }
-
-  Quote _randomFallback({bool sigma = false}) {
-    if (sigma) return _sigmaFallback[Random().nextInt(_sigmaFallback.length)];
-    return _fallback[Random().nextInt(_fallback.length)];
   }
 
   static String _dateKey(DateTime d) => '${d.year}-${d.month}-${d.day}';

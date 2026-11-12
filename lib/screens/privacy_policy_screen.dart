@@ -21,33 +21,41 @@ class PrivacyPolicyScreen extends StatelessWidget {
           Text('Privacy Policy', style: GoogleFonts.playfairDisplay(
               color: Colors.white, fontSize: 22, fontWeight: FontWeight.w700)),
           const SizedBox(height: 6),
-          Text('Last updated: May 2025',
+          Text('Last updated: November 2026',
               style: GoogleFonts.inter(color: Colors.white38, fontSize: 12)),
           const SizedBox(height: 24),
           _Section(
-            title: 'Information We Collect',
-            body: 'MotivateMe stores your name and email address locally on your device when you create an account. '
-                'This data never leaves your device and is not transmitted to any server.',
+            title: 'No Account Needed',
+            body: 'Motivate Me does not ask you to create an account and does not collect your name, '
+                'email address, or any other contact details.',
           ),
           _Section(
-            title: 'How We Use Your Information',
-            body: 'Your information is used solely to personalize your in-app experience '
-                '(e.g., displaying your name). We do not sell, share, or transmit your data to third parties.',
+            title: 'Data Stored on Your Device',
+            body: 'Your streak, favorite quotes, goals, wins, challenge progress, and settings are stored '
+                'only on your device. They are never uploaded to us. Uninstalling the app deletes all of it.',
           ),
           _Section(
-            title: 'Data Storage',
-            body: 'All data (account info, streak, goals, challenge progress) is stored locally on your device '
-                'using standard device storage. Uninstalling the app removes all stored data.',
+            title: 'AI Coach',
+            body: 'When you chat with the AI Coach, the messages in that conversation are sent to our AI '
+                'provider (Anthropic) to generate a reply. They are not linked to your identity, and we do '
+                'not use them for advertising. Do not share sensitive personal information in the chat. '
+                'If the AI Coach is offline, replies are generated on your device and nothing is sent.',
+          ),
+          _Section(
+            title: 'Content Downloads',
+            body: 'The app downloads quotes from ZenQuotes and background photos from Unsplash. These '
+                'requests contain no personal data, but like any web request they reveal your IP address '
+                'to those services.',
           ),
           _Section(
             title: 'Notifications',
-            body: 'If you enable daily notifications, the app schedules local notifications on your device. '
-                'No notification data is sent to external servers.',
+            body: 'If you enable reminders, the app schedules local notifications on your device. '
+                'No notification data is sent to any server.',
           ),
           _Section(
-            title: 'Third-Party Services',
-            body: 'The app uses Google Fonts for typography. No personal data is shared with Google Fonts. '
-                'No analytics, advertising SDKs, or tracking libraries are used.',
+            title: 'No Tracking',
+            body: 'The app contains no analytics, advertising, or tracking libraries, and we do not sell '
+                'or share your data with anyone.',
           ),
           _Section(
             title: 'Children\'s Privacy',

@@ -1,10 +1,16 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../services/favorites_service.dart';
 import '../services/quotes_service.dart';
+import '../services/sigma_service.dart';
 import '../services/streak_service.dart';
+import 'ai_chat_screen.dart';
 import 'challenge_screen.dart';
 import 'favorites_screen.dart';
 import 'goals_screen.dart';
@@ -156,27 +162,45 @@ class _QuoteTabState extends State<_QuoteTab> {
   bool _loading = true;
   late PageController _pageCtrl;
 
+  MotivationMode _mode = SigmaService.instance.mode;
+
   @override
   void initState() {
     super.initState();
     _pageCtrl = PageController();
+    SigmaService.instance.addListener(_onModeChanged);
     _loadInitial();
   }
 
   @override
   void dispose() {
+    SigmaService.instance.removeListener(_onModeChanged);
     _pageCtrl.dispose();
     super.dispose();
   }
 
+  // Picking a new motivation mode in Settings restarts the feed with that
+  // mode's quotes.
+  void _onModeChanged() {
+    if (SigmaService.instance.mode == _mode) return;
+    _mode = SigmaService.instance.mode;
+    setState(() { _quotes.clear(); _loading = true; });
+    if (_pageCtrl.hasClients) _pageCtrl.jumpToPage(0);
+    _loadInitial();
+  }
+
   Future<void> _loadInitial() async {
+    final mode = _mode;
     final q = await widget.quotesService.getTodayQuote();
-    if (mounted) setState(() { _quotes.add(q); _loading = false; });
+    if (!mounted || mode != _mode) return;
+    setState(() { _quotes..clear()..add(q); _loading = false; });
   }
 
   Future<void> _loadNext() async {
-    final q = await widget.quotesService.refreshQuote();
-    if (mounted) setState(() => _quotes.add(q));
+    final mode = _mode;
+    final q = await widget.quotesService.nextQuote();
+    if (!mounted || mode != _mode) return;
+    setState(() => _quotes.add(q));
   }
 
   void _onPageChanged(int page) {
@@ -259,7 +283,7 @@ class _TopOverlay extends StatelessWidget {
                       const Text('🔥', style: TextStyle(fontSize: 16)),
                       const SizedBox(width: 6),
                       Text(
-                        '${streakService.streak} days',
+                        '${streakService.streak} ${streakService.streak == 1 ? 'day' : 'days'}',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 13,
@@ -295,7 +319,7 @@ class _TopOverlay extends StatelessWidget {
 
 // ── Quote Card ────────────────────────────────────────────────────────────────
 
-class _QuoteCard extends StatelessWidget {
+class _QuoteCard extends StatefulWidget {
   const _QuoteCard({
     required this.quote,
     required this.index,
@@ -304,6 +328,79 @@ class _QuoteCard extends StatelessWidget {
   final Quote quote;
   final int index;
   final FavoritesService favoritesService;
+
+  @override
+  State<_QuoteCard> createState() => _QuoteCardState();
+}
+
+class _QuoteCardState extends State<_QuoteCard> {
+  final _shotKey = GlobalKey();
+  bool _capturing = false; // shows the watermark only in the exported image
+
+  String get _shareText =>
+      '"${widget.quote.text}"\n— ${widget.quote.author}\n\nShared from Motivate Me';
+
+  Future<void> _share(Rect? origin) async {
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: const Color(0xFF1E2C42),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            ListTile(
+              leading: const Icon(Icons.image_outlined, color: Color(0xFFFFD700)),
+              title: const Text('Share as image',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+              subtitle: const Text('Perfect for stories and status',
+                  style: TextStyle(color: Colors.white38)),
+              onTap: () => Navigator.pop(ctx, 'image'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.notes_rounded, color: Colors.white70),
+              title: const Text('Share as text',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+              onTap: () => Navigator.pop(ctx, 'text'),
+            ),
+          ]),
+        ),
+      ),
+    );
+    if (choice == 'text') {
+      await SharePlus.instance.share(ShareParams(text: _shareText, sharePositionOrigin: origin));
+    } else if (choice == 'image') {
+      final bytes = await _capture();
+      if (bytes == null) {
+        await SharePlus.instance.share(ShareParams(text: _shareText, sharePositionOrigin: origin));
+        return;
+      }
+      await SharePlus.instance.share(ShareParams(
+        files: [XFile.fromData(bytes, mimeType: 'image/png', name: 'motivate_me_quote.png')],
+        fileNameOverrides: ['motivate_me_quote.png'],
+        sharePositionOrigin: origin,
+      ));
+    }
+  }
+
+  Future<Uint8List?> _capture() async {
+    setState(() => _capturing = true);
+    try {
+      await WidgetsBinding.instance.endOfFrame;
+      final boundary =
+          _shotKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      if (boundary == null) return null;
+      final image = await boundary.toImage(pixelRatio: 3);
+      final data = await image.toByteData(format: ui.ImageByteFormat.png);
+      image.dispose();
+      return data?.buffer.asUint8List();
+    } catch (_) {
+      return null;
+    } finally {
+      if (mounted) setState(() => _capturing = false);
+    }
+  }
 
   static const _bgImages = [
     'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&q=80',
@@ -329,12 +426,20 @@ class _QuoteCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final quote = widget.quote;
+    final index = widget.index;
     final imgUrl = _bgImages[index % _bgImages.length];
     final fallback = _fallbackColors[index % _fallbackColors.length];
 
     return Stack(
       fit: StackFit.expand,
       children: [
+        // Everything inside this boundary is what "Share as image" exports.
+        RepaintBoundary(
+          key: _shotKey,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
         // Background photo
         Image.network(
           imgUrl,
@@ -420,31 +525,78 @@ class _QuoteCard extends StatelessWidget {
                 ),
               ),
               const Spacer(flex: 2),
-              _ActionBar(quote: quote, favoritesService: favoritesService),
-              const SizedBox(height: 10),
-              Text(
-                'swipe for next',
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.28),
-                  fontSize: 11,
-                  letterSpacing: 0.5,
-                ),
-              ),
-              const SizedBox(height: 28),
+              // Space taken by the action bar below, so the quote sits
+              // where it always did.
+              const SizedBox(height: _actionAreaHeight),
             ],
+          ),
+        ),
+        if (_capturing)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 48,
+            child: Text(
+              'MOTIVATE ME',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(
+                color: Colors.white.withValues(alpha: 0.6),
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 4,
+              ),
+            ),
+          ),
+            ],
+          ),
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: SafeArea(
+            top: false,
+            child: SizedBox(
+              height: _actionAreaHeight,
+              child: Column(
+                children: [
+                  _ActionBar(
+                    quote: quote,
+                    favoritesService: widget.favoritesService,
+                    onShare: _share,
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'swipe for next',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.28),
+                      fontSize: 11,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ],
     );
   }
+
+  static const double _actionAreaHeight = 62 + 10 + 16 + 28;
 }
 
 // ── Action Bar (Heart + Share) ────────────────────────────────────────────────
 
 class _ActionBar extends StatelessWidget {
-  const _ActionBar({required this.quote, required this.favoritesService});
+  const _ActionBar({
+    required this.quote,
+    required this.favoritesService,
+    required this.onShare,
+  });
   final Quote quote;
   final FavoritesService favoritesService;
+  final void Function(Rect? origin) onShare;
 
   @override
   Widget build(BuildContext context) {
@@ -468,18 +620,18 @@ class _ActionBar extends StatelessWidget {
               icon: Icons.share_outlined,
               color: Colors.white,
               onTap: () {
-                final text = '"${quote.text}"\n— ${quote.author}\n\nMotivateMe';
-                Clipboard.setData(ClipboardData(text: text));
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: const Text('Copied! Paste anywhere to share'),
-                    behavior: SnackBarBehavior.floating,
-                    backgroundColor: Colors.black87,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                  ),
-                );
+                // iPad shows the share sheet as a popover and needs an anchor
+                // rect, or it throws.
+                final box = context.findRenderObject() as RenderBox?;
+                onShare(box == null ? null : box.localToGlobal(Offset.zero) & box.size);
               },
+            ),
+            const SizedBox(width: 24),
+            _FloatBtn(
+              icon: Icons.forum_outlined,
+              color: Colors.white,
+              onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const AiChatScreen())),
             ),
           ],
         );

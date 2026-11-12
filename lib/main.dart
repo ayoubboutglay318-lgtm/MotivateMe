@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/home_screen.dart';
 import 'screens/onboarding_screen.dart';
-import 'services/auth_service.dart';
 import 'services/challenge_service.dart';
 import 'services/favorites_service.dart';
 import 'services/goals_service.dart';
@@ -33,7 +32,6 @@ void main() async {
     favs.load(), streak.load(),
     ChallengeService.instance.load(),
     GoalsService.instance.load(),
-    AuthService.instance.load(),
     SigmaService.instance.load(),
     ThemeService.instance.load(),
   ]);
@@ -84,6 +82,8 @@ class _MotivateAppState extends State<MotivateApp> {
       final saved = await NotificationService.instance.getSavedTime();
       final enabled = await NotificationService.instance.isEnabled();
       if (enabled) await NotificationService.instance.schedule(saved);
+      await NotificationService.instance
+          .scheduleStreakReminder(widget.streakService.streak);
     } catch (_) {}
   }
 
