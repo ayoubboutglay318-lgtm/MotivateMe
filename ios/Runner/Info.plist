@@ -64,6 +64,8 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>NSUserNotificationUsageDescription</key>
 	<string>MotivateMe sends you a daily motivational quote to keep you going.</string>
 </dict>
