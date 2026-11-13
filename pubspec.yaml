@@ -1,7 +1,7 @@
 name: motivate_me
 description: "Daily motivational quotes with scheduled notifications."
 publish_to: 'none'
-version: 1.0.0+3
+version: 1.0.0+4
 
 environment:
   sdk: ^3.11.5
